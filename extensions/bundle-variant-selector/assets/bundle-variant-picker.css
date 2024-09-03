@@ -1,0 +1,113 @@
+/* General Styles */
+.bundle-variant-selector {
+  background-color: red;
+}
+.variant-picker-container {
+    display: block;
+    margin-bottom: 20px;
+  }
+  
+  .variant-picker-container h5 {
+    font-size: 1.6rem;
+    margin-bottom: 0.8rem;
+    color: #333;
+  }
+  
+  /* Radio Buttons for Size and Type */
+  .variant-picker-container input[type="radio"] {
+    display: none;
+  }
+  
+  .variant-picker-container label {
+    display: inline-block;
+    padding: 10px 20px;
+    margin: 0 10px 10px 0;
+    border-radius: 5px;
+    border: 2px solid #ccc;
+    background-color: #f9f9f9;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .variant-picker-container input[type="radio"]:checked + label {
+    border-color: #000 !important;
+    background-color: #000 !important;
+    color: #fff !important;
+  }
+  
+  
+  
+  /* Design Selection */
+  .design-picker-container {
+    margin-top: 20px;
+  }
+  
+  .design-picker-container button {
+    display: inline-block;
+    width: 60px;
+    height: 60px;
+    border: 2px solid #ccc;
+    background-color: #f9f9f9;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+  }
+  
+  .design-picker-container button.selected {
+    border-color: #000;
+  }
+  
+  .design-picker-container img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+  }
+  
+  /* Selected Design Image */
+  .design-image-placeholder {
+    margin-top: 10px;
+    width: 100px;
+    height: 100px;
+    border: 2px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f9f9f9;
+  }
+  
+  .design-image-placeholder img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 5px;
+  }
+  
+  /* Button for Adding to Cart */
+  #add-to-cart {
+    display: block;
+    margin: 30px 0;
+    padding: 10px 20px;
+    background-color: #000;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  #add-to-cart:hover {
+    background-color: #444;
+  }
+  
+  /* Responsive Design */
+  @media screen and (max-width: 768px) {
+    .variant-picker-container label,
+    .design-picker-container button {
+      width: 100%;
+      text-align: center;
+    }
+    
+    .variant-picker-container label {
+      margin: 10px 0;
+    }
+  }
+  
