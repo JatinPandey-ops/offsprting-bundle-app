@@ -73,6 +73,8 @@ model Bundle {
   userChosenName String
   price          Float
   compareAtPrice Float?
+  maxSelections         Int?         // New field for max selections
+  singleDesignSelection Boolean?    // New field for single design selection
   bundleProducts BundleProduct[]  // Relation to BundleProduct join table
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

@@ -13,6 +13,7 @@ import {
   BlockStack,
   List,
   Modal,
+  Checkbox,
 } from "@shopify/polaris";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
@@ -146,11 +147,54 @@ export const loader = async ({ request }) => {
 };
 
 // Action function to handle form submission and save the bundle
+// export const action = async ({ request }) => {
+//   console.log("Action function started");
+//   const formData = await request.formData();
+//   const selectedProductIds = JSON.parse(formData.get("selectedProductIds"));
+//   const placeholderProductId = formData.get("placeholderProductId");
+//   const maxSelections = parseInt(formData.get("maxSelections"), 10); // Get max selections
+//   const singleDesignSelection = formData.get("singleDesignSelection") === "true"; // Get single design selection
+
+//   console.log("Selected Product IDs:", selectedProductIds);
+//   console.log("Placeholder Product ID:", placeholderProductId);
+//   console.log("Max Selections:", maxSelections);
+//   console.log("Allow Single Design Selection:", singleDesignSelection);
+
+//   try {
+//     // Your code to fetch the placeholder product and create the bundle
+//     const newBundle = await prisma.bundle.create({
+//       data: {
+//         id: placeholderProductId,
+//         userChosenName: placeholderProduct.title,
+//         price: parseFloat(placeholderProduct.variants[0].price), // Example: Using the first variant's price
+//         maxSelections, // Save max selections in the bundle
+//         singleDesignSelection, // Save the single design selection boolean in the bundle
+//         bundleProducts: {
+//           create: selectedProductIds.map((id) => ({
+//             product: { connect: { id: id.replace("gid://shopify/Product/", "") } },
+//           })),
+//         },
+//       },
+//       include: {
+//         bundleProducts: true,
+//       },
+//     });
+
+//     console.log("New bundle created:", newBundle);
+//     return json({ success: true, bundle: newBundle });
+//   } catch (error) {
+//     console.error("Error creating bundle:", error);
+//     return json({ success: false, error: error.message });
+//   }
+// };
+
 export const action = async ({ request }) => {
   console.log("Action function started");
   const formData = await request.formData();
   const selectedProductIds = JSON.parse(formData.get("selectedProductIds"));
   const placeholderProductId = formData.get("placeholderProductId");
+  const maxSelections = parseInt(formData.get("maxSelections"), 10); // Get max selections
+  const singleDesignSelection = formData.get("singleDesignSelection") === "true"; // Get single design selection
   
   console.log("Selected Product IDs:", selectedProductIds);
   console.log("Placeholder Product ID:", placeholderProductId);
@@ -172,9 +216,11 @@ export const action = async ({ request }) => {
     console.log("Creating a new bundle in Prisma...");
     const newBundle = await prisma.bundle.create({
       data: {
-        id : placeholderProductId,
-        userChosenName: placeholderProduct.title, // Use the placeholder product's title
+        id: placeholderProductId,
+        userChosenName: placeholderProduct.title,
         price: parseFloat(placeholderProduct.variants[0].price), // Example: Using the first variant's price
+        maxSelections, // Save max selections in the bundle
+        singleDesignSelection, // Save the single design selection boolean in the bundle
         bundleProducts: {
           create: selectedProductIds.map((id) => ({
             product: { connect: { id: id.replace("gid://shopify/Product/", "") } },
@@ -204,6 +250,8 @@ export default function BundlePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [placeholderProductSelection, setPlaceholderProductSelection] = useState(null);
   const [filteredPlaceholderProducts, setFilteredPlaceholderProducts] = useState([]);
+  const [maxSelections, setMaxSelections] = useState(5); // State for max selection number
+  const [singleDesignSelection, setSingleDesignSelection] = useState(false); // State for single design selection
 
   const submit = useSubmit();
   const fetcher = useFetcher();
@@ -234,43 +282,27 @@ export default function BundlePage() {
   const handlePlaceholderSelection = (id) => {
     setPlaceholderProductSelection(id);
     setIsModalOpen(false);
-    setUserChosenName(products.find(product => product.node.id === id).node.title); // Set bundle name as the placeholder product's title
+    setUserChosenName(products.find(product => product.node.id === id).node.title);
   };
-
-  const handleSubmit = useCallback(async () => {
-    const formData = new FormData();
-    formData.append("selectedProductIds", JSON.stringify(selectedItems));
-    formData.append("placeholderProductId", placeholderProductSelection); // Include selected placeholder product
-
-    console.log("Submitting bundle creation form...");
-    submit(formData, { method: "post" });
-  }, [selectedItems, submit, placeholderProductSelection]);
-
-  useEffect(() => {
-    if (fetcher.data && fetcher.data.products) {
-      setProducts(fetcher.data.products);
-    }
-    if (fetcher.data && !fetcher.data.success) {
-      console.error("Error returned from action:", fetcher.data.error);
-    }
-  }, [fetcher.data]);
-
-  useEffect(() => {
-    if (bundle) {
-      appBridge.toast.show(
-        `Bundle "${bundle.userChosenName}" created with ${bundle.bundleProducts.length} products.`
-      );
-    }
-  }, [bundle, appBridge]);
-
   useEffect(() => {
     if (isModalOpen) {
       const placeholderProducts = products.filter((product) =>
-        product.node.title.toLowerCase().includes("bundle")
+        product.node.title.toLowerCase().includes("bundle") // Customize your filter logic here
       );
       setFilteredPlaceholderProducts(placeholderProducts);
     }
-  }, [isModalOpen, products]);
+  }, [isModalOpen, products]); // Trigger when the modal opens and when products change
+  
+  const handleSubmit = useCallback(async () => {
+    const formData = new FormData();
+    formData.append("selectedProductIds", JSON.stringify(selectedItems));
+    formData.append("placeholderProductId", placeholderProductSelection);
+    formData.append("maxSelections", maxSelections); // Add max selections
+    formData.append("singleDesignSelection", singleDesignSelection); // Add single design selection
+
+    console.log("Submitting bundle creation form...");
+    submit(formData, { method: "post" });
+  }, [selectedItems, submit, placeholderProductSelection, maxSelections, singleDesignSelection]);
 
   return (
     <Page>
@@ -282,7 +314,7 @@ export default function BundlePage() {
                 label="Bundle Name"
                 value={userChosenName}
                 autoComplete="off"
-                disabled // Disabled as it will be set automatically by the placeholder product
+                disabled
               />
               <TextField
                 label="Search Products"
@@ -291,6 +323,7 @@ export default function BundlePage() {
                 autoComplete="off"
                 placeholder="Search by product title"
               />
+              
               <ResourceList
                 resourceName={{ singular: "product", plural: "products" }}
                 items={filteredProducts}
@@ -345,6 +378,22 @@ export default function BundlePage() {
                     </BlockStack>
                   );
                 })}
+                 {/* New number input for max selections */}
+              <TextField
+              type="number"
+                label="Max Selections in Bundle"
+                value={maxSelections}
+                onChange={(value) => setMaxSelections(value)}
+                min={1}
+              />
+
+              {/* New checkbox for single design selection */}
+              <Checkbox
+                label="Allow Single Design Selection?"
+                checked={singleDesignSelection}
+                onChange={(value) => setSingleDesignSelection(value)}
+              />
+
                 <Button variant="primary" onClick={() => setIsModalOpen(true)}>
                   Select a Placeholder Product
                 </Button>
@@ -376,7 +425,7 @@ export default function BundlePage() {
         )}
       </Layout>
 
-      <Modal
+       <Modal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Select a Placeholder Product"
