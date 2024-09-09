@@ -3,7 +3,7 @@
 client_id = "331dc9c52f792f831f29df86d0873d41"
 name = "bundle-app"
 handle = "bundle-app-146"
-application_url = "https://occurs-we-deaf-tba.trycloudflare.com"
+application_url = "https://looks-hopkins-alabama-appeal.trycloudflare.com"
 embedded = true
 
 [build]
@@ -17,9 +17,9 @@ scopes = "read_products,write_products"
 
 [auth]
 redirect_urls = [
-  "https://occurs-we-deaf-tba.trycloudflare.com/auth/callback",
-  "https://occurs-we-deaf-tba.trycloudflare.com/auth/shopify/callback",
-  "https://occurs-we-deaf-tba.trycloudflare.com/api/auth/callback"
+  "https://looks-hopkins-alabama-appeal.trycloudflare.com/auth/callback",
+  "https://looks-hopkins-alabama-appeal.trycloudflare.com/auth/shopify/callback",
+  "https://looks-hopkins-alabama-appeal.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]
@@ -27,7 +27,7 @@ api_version = "2024-07"
 
   [[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
-  uri = "/webhooks"
+  uri = "https://casinos-hospitals-finance-follows.trycloudflare.com/webhooks"
 
 [pos]
 embedded = false

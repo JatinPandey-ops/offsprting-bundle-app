@@ -88,4 +88,3 @@ model BundleProduct {
 
   @@id([productId, bundleId])  // Composite primary key
 }
-

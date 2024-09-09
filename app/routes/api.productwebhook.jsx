@@ -7,6 +7,7 @@ export const action = async ({ request }) => {
     const shopifyTopic = headers.get('x-shopify-topic');
 
     const payload = await request.json();
+    console.log(payload)
     const {
       id: shopifyProductId,
       title,
@@ -23,8 +24,8 @@ export const action = async ({ request }) => {
     console.log('Received webhook event:', shopifyTopic, 'for product:', shopifyProductId);
 
     if (shopifyTopic === 'products/create' || shopifyTopic === 'products/update') {
-      // Validate and sanitize the input data for create/update
-      if (!title || !handle || !updated_at) {
+      
+      if (!title || !handle ) {
         throw new Error('Missing required fields: title, handle, or updated_at');
       }
 

@@ -85,7 +85,7 @@ export const loader = async ({ request }) => {
     for (const edge of products) {
       const productNode = edge.node;
       const productId = productNode.id.replace("gid://shopify/Product/", "");
-
+      console.log("Product Data:", productNode); // Log full product data
       if (!existingProductIds.has(productId)) {
         try {
           console.log(`Upserting product with ID ${productId} in Prisma...`);
