@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
+// Make sure Prisma is only instantiated once in a server environment
 let prisma;
-
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === "production") {
   prisma = new PrismaClient();
 } else {
   if (!global.prisma) {
