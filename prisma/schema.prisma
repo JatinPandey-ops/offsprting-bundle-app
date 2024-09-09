@@ -9,8 +9,8 @@ generator client {
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 model Session {
@@ -33,7 +33,7 @@ model Session {
 model Product {
   id                String     @id @map("shopifyProductId")  // Unique ID from Shopify
   title             String
-  handle            String     @unique
+  handle            String     
   descriptionHtml   String?
   productType       String?
   vendor            String?

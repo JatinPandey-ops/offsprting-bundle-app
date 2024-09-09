@@ -88,7 +88,6 @@ export const loader = async ({ request }) => {
       console.log("Product Data:", productNode); // Log full product data
       if (!existingProductIds.has(productId)) {
         try {
-          console.log(`Upserting product with ID ${productId} in Prisma...`);
           await prisma.product.upsert({
             where: { id: productId },
             update: {
@@ -107,10 +106,7 @@ export const loader = async ({ request }) => {
               vendor: productNode.vendor,
               variants: {
                 create: productNode.variants.edges.map((variantEdge) => ({
-                  id: variantEdge.node.id.replace(
-                    "gid://shopify/ProductVariant/",
-                    ""
-                  ),
+                  id: variantEdge.node.id.replace("gid://shopify/ProductVariant/", ""),
                   title: variantEdge.node.title,
                   price: parseFloat(variantEdge.node.price),
                   sku: variantEdge.node.sku,
@@ -127,12 +123,9 @@ export const loader = async ({ request }) => {
             },
           });
         } catch (error) {
-          if (error.code === 'P2002') {
-            console.log(`Product with ID ${productId} already exists. Skipping upsert.`);
-          } else {
-            throw error; // Re-throw other unexpected errors
-          }
+          console.error(`Error upserting product with ID ${productId}:`, error.message);
         }
+        
       }
     }
 
