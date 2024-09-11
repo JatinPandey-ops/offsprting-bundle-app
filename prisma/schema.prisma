@@ -9,7 +9,7 @@ generator client {
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -31,22 +31,21 @@ model Session {
   emailVerified Boolean?  @default(false)
 }
 model Product {
-  id                String     @id @map("shopifyProductId")  // Unique ID from Shopify
+  id                BigInt     @id // Changed from Int to BigInt
   title             String
   handle            String     
   descriptionHtml   String?
   productType       String?
   vendor            String?
-  variants          Variant[]  @relation("ProductVariants") // Relation to Variant model
-  images            Image[]    @relation("ProductImages")   // Relation to Image model
-  bundleProducts    BundleProduct[]  // Relation to BundleProduct join table
-  tags              String?    // Store tags as a JSON string
+  variants          Variant[]  @relation("ProductVariants")
+  images            Image[]    @relation("ProductImages")
+  bundleProducts    BundleProduct[] @relation("ProductToBundleProduct")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 }
 
 model Variant {
-  id                String     @id  // Unique ID for the variant
+  id                BigInt        @id @default(autoincrement()) // Auto-incrementing Int ID for variant
   title             String
   price             Float
   sku               String?
@@ -54,37 +53,38 @@ model Variant {
   weight            Float?
   weightUnit        String?
   requiresShipping  Boolean?
-  productId         String     // Foreign key to Product model
+  productId         BigInt     // Foreign key to Product model (matching BigInt)
   product           Product    @relation(name: "ProductVariants", fields: [productId], references: [id], onDelete: Cascade)  // Relation to Product model
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 }
 
 model Image {
-  id        String     @id  // Unique ID for the image
+  id        BigInt        @id @default(autoincrement()) // Auto-incrementing Int ID for image
   src       String     // Source URL of the image
   altText   String?
-  productId String     // Foreign key to Product model
+  productId BigInt     // Foreign key to Product model (matching BigInt)
   product   Product    @relation(name: "ProductImages", fields: [productId], references: [id], onDelete: Cascade)  // Relation to Product model
 }
 
 model Bundle {
-  id             String    @id  // Placeholder product ID from Shopify
-  userChosenName String
-  price          Float
-  compareAtPrice Float?
-  maxSelections         Int?         // New field for max selections
-  singleDesignSelection Boolean?    // New field for single design selection
-  bundleProducts BundleProduct[]  // Relation to BundleProduct join table
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                  BigInt        @id @default(autoincrement())  // Auto-incrementing Int ID
+  userChosenName      String
+  price               Float
+  compareAtPrice      Float?
+  maxSelections       Int?         // New field for max selections
+  singleDesignSelection Boolean?   // New field for single design selection
+  bundleProducts      BundleProduct[] @relation("BundleToBundleProduct")
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 }
 
 model BundleProduct {
-  productId String
-  bundleId  String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  bundle    Bundle   @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId BigInt     // Changed to BigInt
+  bundleId  BigInt
+  product   Product    @relation(name: "ProductToBundleProduct", fields: [productId], references: [id], onDelete: Cascade)
+  bundle    Bundle     @relation(name: "BundleToBundleProduct", fields: [bundleId], references: [id], onDelete: Cascade)
 
   @@id([productId, bundleId])  // Composite primary key
 }
+

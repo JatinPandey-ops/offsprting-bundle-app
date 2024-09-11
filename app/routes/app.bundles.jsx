@@ -21,6 +21,7 @@ import prisma from "../db.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
 // Loader function to fetch all products and sync with Prisma
+// Loader function to fetch all products and sync with Prisma
 export const loader = async ({ request }) => {
   try {
     const { admin } = await authenticate.admin(request);
@@ -67,65 +68,82 @@ export const loader = async ({ request }) => {
 
     const response = await admin.graphql(graphqlQuery);
     const productData = (await response.json()).data;
-
     const products = productData.products.edges;
 
     console.log("Total products fetched:", products.length);
 
-    console.log("Fetching existing products from Prisma...");
-    const existingProducts = await prisma.product.findMany({
-      select: {
-        id: true,
-      },
-    });
-
-    const existingProductIds = new Set(existingProducts.map((product) => product.id));
-
-    console.log("Upserting missing products...");
     for (const edge of products) {
       const productNode = edge.node;
-      const productId = productNode.id.replace("gid://shopify/Product/", "");
-      console.log("Product Data:", productNode); // Log full product data
-      if (!existingProductIds.has(productId)) {
-        try {
-          await prisma.product.upsert({
-            where: { id: productId },
-            update: {
+      const shopifyProductId = BigInt(productNode.id.replace("gid://shopify/Product/", "")); // Convert to BigInt
+
+      console.log(`Processing product: ${productNode.title}`);
+
+      try {
+        // Check if the product already exists in the database
+        const existingProduct = await prisma.product.findUnique({
+          where: { id: shopifyProductId },
+        });
+
+        const variantData = productNode.variants.edges.map((variantEdge) => ({
+          id: BigInt(variantEdge.node.id.replace("gid://shopify/ProductVariant/", "")) , // Convert to BigInt
+          title: variantEdge.node.title,
+          price: parseFloat(variantEdge.node.price),
+          sku: variantEdge.node.sku,
+          inventoryQuantity: variantEdge.node.inventoryQuantity ?? 0, // Provide a default value if null
+        }));
+
+        const imageData = productNode.images.edges.map((imageEdge) => ({
+          id: parseInt(imageEdge.node.id.replace("gid://shopify/ProductImage/", "")), // Convert to BigInt
+          src: imageEdge.node.src,
+          altText: imageEdge.node.altText ?? null, // Provide null if altText is missing
+        }));
+
+        if (existingProduct) {
+          // If the product exists, update it
+          console.log(`Updating existing product: ${productNode.title}`);
+          await prisma.product.update({
+            where: { id: shopifyProductId },
+            data: {
               title: productNode.title,
               handle: productNode.handle,
-              descriptionHtml: productNode.descriptionHtml,
-              productType: productNode.productType,
-              vendor: productNode.vendor,
-            },
-            create: {
-              id: productId,
-              title: productNode.title,
-              handle: productNode.handle,
-              descriptionHtml: productNode.descriptionHtml,
-              productType: productNode.productType,
-              vendor: productNode.vendor,
+              descriptionHtml: productNode.descriptionHtml ?? "", // Use empty string if null
+              productType: productNode.productType ?? "", // Use empty string if null
+              vendor: productNode.vendor ?? "", // Use empty string if null
               variants: {
-                create: productNode.variants.edges.map((variantEdge) => ({
-                  id: variantEdge.node.id.replace("gid://shopify/ProductVariant/", ""),
-                  title: variantEdge.node.title,
-                  price: parseFloat(variantEdge.node.price),
-                  sku: variantEdge.node.sku,
-                  inventoryQuantity: variantEdge.node.inventoryQuantity,
-                })),
+                deleteMany: {}, // Clear existing variants before updating
+                create: variantData, // Re-create all variants
               },
               images: {
-                create: productNode.images.edges.map((imageEdge) => ({
-                  id: imageEdge.node.id.replace("gid://shopify/ProductImage/", ""),
-                  src: imageEdge.node.src,
-                  altText: imageEdge.node.altText,
-                })),
+                deleteMany: {}, // Clear existing images before updating
+                create: imageData, // Re-create all images
               },
+              updatedAt: new Date(),
             },
           });
-        } catch (error) {
-          console.error(`Error upserting product with ID ${productId}:`, error.message);
+        } else {
+          // If the product doesn't exist, create a new one
+          console.log(`Creating new product: ${productNode.title}`);
+          await prisma.product.create({
+            data: {
+              id: shopifyProductId,
+              title: productNode.title,
+              handle: productNode.handle,
+              descriptionHtml: productNode.descriptionHtml ?? "", // Use empty string if null
+              productType: productNode.productType ?? "", // Use empty string if null
+              vendor: productNode.vendor ?? "", // Use empty string if null
+              variants: {
+                create: variantData, // Create variants
+              },
+              images: {
+                create: imageData, // Create images
+              },
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
         }
-        
+      } catch (error) {
+        console.error(`Error processing product with Shopify Product ID ${shopifyProductId}:`, error.message);
       }
     }
 
@@ -139,53 +157,13 @@ export const loader = async ({ request }) => {
   }
 };
 
+
 // Action function to handle form submission and save the bundle
-// export const action = async ({ request }) => {
-//   console.log("Action function started");
-//   const formData = await request.formData();
-//   const selectedProductIds = JSON.parse(formData.get("selectedProductIds"));
-//   const placeholderProductId = formData.get("placeholderProductId");
-//   const maxSelections = parseInt(formData.get("maxSelections"), 10); // Get max selections
-//   const singleDesignSelection = formData.get("singleDesignSelection") === "true"; // Get single design selection
-
-//   console.log("Selected Product IDs:", selectedProductIds);
-//   console.log("Placeholder Product ID:", placeholderProductId);
-//   console.log("Max Selections:", maxSelections);
-//   console.log("Allow Single Design Selection:", singleDesignSelection);
-
-//   try {
-//     // Your code to fetch the placeholder product and create the bundle
-//     const newBundle = await prisma.bundle.create({
-//       data: {
-//         id: placeholderProductId,
-//         userChosenName: placeholderProduct.title,
-//         price: parseFloat(placeholderProduct.variants[0].price), // Example: Using the first variant's price
-//         maxSelections, // Save max selections in the bundle
-//         singleDesignSelection, // Save the single design selection boolean in the bundle
-//         bundleProducts: {
-//           create: selectedProductIds.map((id) => ({
-//             product: { connect: { id: id.replace("gid://shopify/Product/", "") } },
-//           })),
-//         },
-//       },
-//       include: {
-//         bundleProducts: true,
-//       },
-//     });
-
-//     console.log("New bundle created:", newBundle);
-//     return json({ success: true, bundle: newBundle });
-//   } catch (error) {
-//     console.error("Error creating bundle:", error);
-//     return json({ success: false, error: error.message });
-//   }
-// };
-
 export const action = async ({ request }) => {
   console.log("Action function started");
   const formData = await request.formData();
   const selectedProductIds = JSON.parse(formData.get("selectedProductIds"));
-  const placeholderProductId = formData.get("placeholderProductId");
+  const placeholderProductId = parseInt(formData.get("placeholderProductId").replace("gid://shopify/Product/", "")); // Convert to integer
   const maxSelections = parseInt(formData.get("maxSelections"), 10); // Get max selections
   const singleDesignSelection = formData.get("singleDesignSelection") === "true"; // Get single design selection
   
@@ -196,7 +174,7 @@ export const action = async ({ request }) => {
     // Fetch the placeholder product's title
     console.log("Fetching placeholder product from Prisma...");
     const placeholderProduct = await prisma.product.findUnique({
-      where: { id: placeholderProductId.replace("gid://shopify/Product/", "") },
+      where: { id: placeholderProductId },
       include: { variants: true }, // Include variants to fetch price
     });
 
@@ -216,7 +194,7 @@ export const action = async ({ request }) => {
         singleDesignSelection, // Save the single design selection boolean in the bundle
         bundleProducts: {
           create: selectedProductIds.map((id) => ({
-            product: { connect: { id: id.replace("gid://shopify/Product/", "") } },
+            product: { connect: { id: parseInt(id.replace("gid://shopify/Product/", "")) } }, // Convert to integer
           })),
         },
       },
@@ -232,6 +210,7 @@ export const action = async ({ request }) => {
     return json({ success: false, error: error.message });
   }
 };
+
 
 // Client code: React component
 export default function BundlePage() {
