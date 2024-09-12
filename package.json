@@ -2,7 +2,7 @@
   "name": "bundle-app",
   "private": true,
   "scripts": {
-    "build": "prisma migrate dev --name init && remix vite:build",
+    "build": "prisma migrate deploy --name init && remix vite:build",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
