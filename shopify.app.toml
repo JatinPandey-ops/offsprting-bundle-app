@@ -3,7 +3,7 @@
 client_id = "331dc9c52f792f831f29df86d0873d41"
 name = "bundle-app"
 handle = "bundle-app-146"
-application_url = "https://invited-uses-who-ronald.trycloudflare.com"
+application_url = "https://ceramic-blood-happening-irs.trycloudflare.com"
 embedded = true
 
 [build]
@@ -17,9 +17,9 @@ scopes = "read_products,write_products"
 
 [auth]
 redirect_urls = [
-  "https://invited-uses-who-ronald.trycloudflare.com/auth/callback",
-  "https://invited-uses-who-ronald.trycloudflare.com/auth/shopify/callback",
-  "https://invited-uses-who-ronald.trycloudflare.com/api/auth/callback"
+  "https://ceramic-blood-happening-irs.trycloudflare.com/auth/callback",
+  "https://ceramic-blood-happening-irs.trycloudflare.com/auth/shopify/callback",
+  "https://ceramic-blood-happening-irs.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]
