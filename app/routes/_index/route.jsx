@@ -1,55 +1,66 @@
-import { json, redirect } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { useState } from "react";
+import { json } from "@remix-run/node";
+import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import {
+  AppProvider as PolarisAppProvider,
+  Button,
+  Card,
+  FormLayout,
+  Page,
+  Text,
+  TextField,
+} from "@shopify/polaris";
+import polarisTranslations from "@shopify/polaris/locales/en.json";
+import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { login } from "../../shopify.server";
-import styles from "./styles.module.css";
+import { loginErrorMessage } from "./error.server";
+
+export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }) => {
-  const url = new URL(request.url);
+  const errors = loginErrorMessage(await login(request));
 
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
-  }
-
-  return json({ showForm: Boolean(login) });
+  return json({ errors, polarisTranslations });
 };
 
-export default function App() {
-  const { showForm } = useLoaderData();
+export const action = async ({ request }) => {
+  const errors = loginErrorMessage(await login(request));
+
+  return json({
+    errors,
+  });
+};
+
+export default function Auth() {
+  const loaderData = useLoaderData();
+  const actionData = useActionData();
+  const [shop, setShop] = useState("");
+  const { errors } = actionData || loaderData;
 
   return (
-    <div className={styles.index}>
-      <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
-        <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
-        </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
+    <PolarisAppProvider i18n={loaderData.polarisTranslations}>
+      <Page>
+        <Card>
+          <Form method="post">
+            <FormLayout>
+              <Text variant="headingMd" as="h2">
+                Log in
+              </Text>
+              <TextField
+                type="text"
+                name="shop"
+                label="Shop domain"
+                helpText="example.myshopify.com"
+                value={shop}
+                onChange={setShop}
+                autoComplete="on"
+                error={errors.shop}
+              />
+              <Button submit>Log in</Button>
+            </FormLayout>
           </Form>
-        )}
-        <ul className={styles.list}>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-        </ul>
-      </div>
-    </div>
+        </Card>
+      </Page>
+    </PolarisAppProvider>
   );
 }
