@@ -26,15 +26,18 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
+  const formData = await request.formData();
+  const shopDomain = formData.get("shop");
+
+  // Assuming login function processes authentication and returns an error if any
+  const loginResult = await login(request);
+  const errors = loginErrorMessage(loginResult); // Extract errors if login failed
 
   if (errors) {
     return json({ errors });
   }
 
-  // Assuming `login` returns a valid session with `shop` or `token`
-  const formData = await request.formData();
-  const shopDomain = formData.get("shop");
-
+  // Continue with session handling if no errors
   const session = await getSessionToken(request.headers.get("Cookie"));
   session.set("shop", shopDomain); // Store the shop domain or any other session data
 
@@ -44,6 +47,7 @@ export const action = async ({ request }) => {
     },
   });
 };
+
 
 export default function Auth() {
   const loaderData = useLoaderData();
