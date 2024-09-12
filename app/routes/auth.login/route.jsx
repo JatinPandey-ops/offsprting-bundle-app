@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { json } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
   AppProvider as PolarisAppProvider,
@@ -14,6 +14,8 @@ import polarisTranslations from "@shopify/polaris/locales/en.json";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { login } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
+import { getSessionToken } from "@shopify/app-bridge-utils";
+import { commitSession } from "../../utils/session.server";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -24,10 +26,22 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const errors = loginErrorMessage(await login(request));
 
-  return json({
-    errors,
+  if (errors) {
+    return json({ errors });
+  }
+
+  // Assuming `login` returns a valid session with `shop` or `token`
+  const formData = await request.formData();
+  const shopDomain = formData.get("shop");
+
+  const session = await getSessionToken(request.headers.get("Cookie"));
+  session.set("shop", shopDomain); // Store the shop domain or any other session data
+
+  return redirect("/", {
+    headers: {
+      "Set-Cookie": await commitSession(session), // Set the session cookie
+    },
   });
 };
 
