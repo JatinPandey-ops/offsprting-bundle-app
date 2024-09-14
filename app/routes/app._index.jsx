@@ -14,6 +14,7 @@ import {
 import { useLoaderData, useFetcher, json } from "@remix-run/react";
 import { useState, useCallback } from "react";
 import { TitleBar } from "@shopify/app-bridge-react";
+import prisma from "../db.server";
 
 // Loader function to fetch bundles and associated products
 export const loader = async () => {

@@ -1,14 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 
-// Make sure Prisma is only instantiated once in a server environment
-let prisma;
-if (process.env.NODE_ENV === "production") {
-  prisma = new PrismaClient();
-} else {
+const prisma = global.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
   if (!global.prisma) {
     global.prisma = new PrismaClient();
   }
-  prisma = global.prisma;
 }
 
 export default prisma;
