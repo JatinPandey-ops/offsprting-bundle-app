@@ -5,11 +5,6 @@
         "dest": "/",
         "status": 200
       }
-    ],
-    "functions": {
-      "app/routes/**/*": {
-        "maxDuration": 30
-      }
-    }
+    ]
   }
   
