@@ -16,6 +16,7 @@ export const loader = async ({ request }) => {
     const bundle = await prisma.bundle.findUnique({
       where: { id: placeholderProductId }, // The id in the Bundle model corresponds to the placeholderProductId
       include: {
+        // Include bundleProducts and their related products, variants, and images
         bundleProducts: {
           include: {
             product: {
@@ -26,6 +27,14 @@ export const loader = async ({ request }) => {
             },
           },
         },
+        // Include bundleVariants and their related variants
+        bundleVariants: {
+          include: {
+            variant: true, // Include the variant details
+          },
+        },
+        // Include the wipeProduct if it exists
+        wipeProduct: true,
       },
     });
 
@@ -33,9 +42,9 @@ export const loader = async ({ request }) => {
       return json({ error: 'Bundle not found' }, { status: 404 });
     }
 
-    // Return the bundle and associated products with their variants as a response
-    const response =  json({ bundle }, { status: 200 });
-    return cors(request, response)
+    // Return the bundle and associated data as a response
+    const response = json({ bundle }, { status: 200 });
+    return cors(request, response);
   } catch (error) {
     console.error('Error in loader:', error);
     return json({ error: 'Internal server error' }, { status: 500 });

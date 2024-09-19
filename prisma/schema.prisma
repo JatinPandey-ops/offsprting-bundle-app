@@ -61,6 +61,7 @@ model Variant {
   giftCard                      Boolean? // Gift card (optional)
   locationId                    String?  // Location ID (optional)
   productId                     String   // Foreign key to Product model
+  bundleVariants   BundleVariant[] // Relation to BundleVariant join table
   product                       Product  @relation(name: "ProductVariants", fields: [productId], references: [id], onDelete: Cascade) // Relation to Product model
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
@@ -85,7 +86,9 @@ model Bundle {
   wipesQuantity         Int? // Optional field for the quantity of wipes
   wipeProductId         String? // Optional foreign key to the wipe product
   wipeProduct           Product?        @relation(name: "WipeProduct", fields: [wipeProductId], references: [id], onDelete: SetNull) // Relation to the product model
+  selectedVariantsData  Json?            // New field to store selected variants data
   bundleProducts        BundleProduct[] // Relation to BundleProduct join table
+  bundleVariants        BundleVariant[]  // Relation to BundleVariant join tab
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
 }
@@ -98,3 +101,13 @@ model BundleProduct {
 
   @@id([productId, bundleId]) // Composite primary key
 }
+
+model BundleVariant {
+  variantId String
+  bundleId  String
+  variant   Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+
+  @@id([variantId , bundleId]) // Composite primary key to ensure unique bundle-variant pairs
+}
+

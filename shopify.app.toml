@@ -3,7 +3,7 @@
 client_id = "331dc9c52f792f831f29df86d0873d41"
 name = "bundle-app"
 handle = "bundle-app-146"
-application_url = "https://ceramic-blood-happening-irs.trycloudflare.com"
+application_url = "https://ya-music-lb-little.trycloudflare.com"
 embedded = true
 
 [build]
@@ -13,13 +13,13 @@ include_config_on_deploy = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,write_products"
+scopes = "read_inventory,read_products,write_products"
 
 [auth]
 redirect_urls = [
-  "https://ceramic-blood-happening-irs.trycloudflare.com/auth/callback",
-  "https://ceramic-blood-happening-irs.trycloudflare.com/auth/shopify/callback",
-  "https://ceramic-blood-happening-irs.trycloudflare.com/api/auth/callback"
+  "https://ya-music-lb-little.trycloudflare.com/auth/callback",
+  "https://ya-music-lb-little.trycloudflare.com/auth/shopify/callback",
+  "https://ya-music-lb-little.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]
