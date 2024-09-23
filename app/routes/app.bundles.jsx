@@ -1,5 +1,5 @@
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher, useSubmit } from "@remix-run/react";
+import { useLoaderData, useFetcher, useSubmit, useActionData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -259,23 +259,41 @@ export const action = async ({ request }) => {
 
 // Client code: React component
 export default function BundlePage() {
+  const actionData = useActionData();
   const { products: initialProducts } = useLoaderData();
   const [products, setProducts] = useState(initialProducts);
   const [searchValue, setSearchValue] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
   const [userChosenName, setUserChosenName] = useState("");
-  const [isPlaceholderModalOpen, setIsPlaceholderModalOpen] = useState(false); // State for placeholder product modal
-  const [isWipeModalOpen, setIsWipeModalOpen] = useState(false); // State for wipe product modal
+  const [isPlaceholderModalOpen, setIsPlaceholderModalOpen] = useState(false);
+  const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
   const [placeholderProductSelection, setPlaceholderProductSelection] = useState(null);
   const [filteredPlaceholderProducts, setFilteredPlaceholderProducts] = useState([]);
-  const [maxSelections, setMaxSelections] = useState(5); // State for max selection number
-  const [singleDesignSelection, setSingleDesignSelection] = useState(false); // State for single design selection
-  const [wipesQuantity, setWipesQuantity] = useState(0); // New state for wipes quantity
-  const [wipeProductSelection, setWipeProductSelection] = useState(null); // New state for wipe product
-  const [filteredWipeProducts, setFilteredWipeProducts] = useState([]); // Filter wipe products for modal
-
+  const [maxSelections, setMaxSelections] = useState(5);
+  const [singleDesignSelection, setSingleDesignSelection] = useState(false);
+  const [wipesQuantity, setWipesQuantity] = useState(0);
+  const [wipeProductSelection, setWipeProductSelection] = useState(null);
+  const [filteredWipeProducts, setFilteredWipeProducts] = useState([]);
+  
+  const app = useAppBridge(); // Initialize App Bridge for Toast
   const submit = useSubmit();
-  const fetcher = useFetcher();
+  
+  // Function to show Toast messages
+  const showToast = (message) => {
+    shopify.toast.show(message,  {
+      duration: 5000,
+    });
+  };
+
+  // Reset the form state after successful submission
+  const resetFormState = () => {
+    setSelectedItems([]);
+    setPlaceholderProductSelection(null);
+    setWipeProductSelection(null);
+    setWipesQuantity(0);
+    setMaxSelections(5);
+    setSingleDesignSelection(false);
+  };
 
   const handleSearchChange = useCallback((value) => {
     setSearchValue(value);
@@ -297,32 +315,43 @@ export default function BundlePage() {
     const formData = new FormData();
     formData.append("selectedProductIds", JSON.stringify(selectedItems));
     formData.append("placeholderProductId", placeholderProductSelection);
-    formData.append("maxSelections", maxSelections); // Add max selections
-    formData.append("singleDesignSelection", singleDesignSelection); // Add single design selection
-    formData.append("wipesQuantity", wipesQuantity); // Add wipes quantity
-    formData.append("wipeProductId", wipeProductSelection); // Add wipe product ID
+    formData.append("maxSelections", maxSelections); 
+    formData.append("singleDesignSelection", singleDesignSelection); 
+    formData.append("wipesQuantity", wipesQuantity); 
+    formData.append("wipeProductId", wipeProductSelection);
 
     console.log("Submitting bundle creation form...");
     submit(formData, { method: "post" });
   }, [selectedItems, submit, placeholderProductSelection, maxSelections, singleDesignSelection, wipesQuantity, wipeProductSelection]);
 
+  // Success/Error notification and form reset
+  useEffect(() => {
+    // Assuming `fetcher.data` contains success/error info
+    if (actionData?.success) {
+      showToast("Bundle created successfully!");
+      resetFormState();
+    } else if (actionData?.error) {
+      showToast(actionData.error);
+    }
+  }, [actionData]);
+
   useEffect(() => {
     if (isPlaceholderModalOpen) {
       const placeholderProducts = products.filter((product) =>
-        product.node.title.toLowerCase().includes("bundle") // Customize your filter logic here
+        product.node.title.toLowerCase().includes("bundle")
       );
       setFilteredPlaceholderProducts(placeholderProducts);
     }
-  }, [isPlaceholderModalOpen, products]); // Trigger when the placeholder modal opens and when products change
+  }, [isPlaceholderModalOpen, products]);
 
   useEffect(() => {
     if (isWipeModalOpen) {
       const wipeProducts = products.filter((product) =>
-        product.node.title.toLowerCase().includes("wipes") // Filter logic for wipes products
+        product.node.title.toLowerCase().includes("wipes")
       );
       setFilteredWipeProducts(wipeProducts);
     }
-  }, [isWipeModalOpen, products]); // Trigger when the wipe modal opens and when products change
+  }, [isWipeModalOpen, products]);
 
   return (
     <Page>
@@ -395,7 +424,7 @@ export default function BundlePage() {
                       <Text as="p" variant="bodyMd">
                         {product.node.title}
                       </Text>
-                      <Button variant="plain" onClick={() => handleRemoveSelection(id)}>Remove</Button>
+                      <Button variant="plain" onClick={() => handleSelection(id)}>Remove</Button>
                     </BlockStack>
                   );
                 })}
@@ -444,10 +473,7 @@ export default function BundlePage() {
         open={isPlaceholderModalOpen}
         onClose={() => setIsPlaceholderModalOpen(false)}
         title="Select a Placeholder Product"
-        primaryAction={{
-          content: "Select",
-          onAction: () => setPlaceholderProductSelection(placeholderProductSelection),
-        }}
+        primaryAction={null}
         secondaryActions={[
           {
             content: "Cancel",
@@ -473,7 +499,10 @@ export default function BundlePage() {
                   id={id}
                   media={media}
                   accessibilityLabel={`Select ${title} as placeholder product`}
-                  onClick={() => setPlaceholderProductSelection(id)}
+                  onClick={() => {
+                    setPlaceholderProductSelection(id);
+                    setIsPlaceholderModalOpen(false);
+                  }}
                 >
                   <Text variant="bodyMd">{title}</Text>
                   {placeholderProductSelection === id && (
@@ -493,10 +522,7 @@ export default function BundlePage() {
         open={isWipeModalOpen}
         onClose={() => setIsWipeModalOpen(false)}
         title="Select a Wipe Product"
-        primaryAction={{
-          content: "Select",
-          onAction: () => setWipeProductSelection(wipeProductSelection),
-        }}
+        primaryAction={null}
         secondaryActions={[
           {
             content: "Cancel",
@@ -522,7 +548,10 @@ export default function BundlePage() {
                   id={id}
                   media={media}
                   accessibilityLabel={`Select ${title} as wipe product`}
-                  onClick={() => setWipeProductSelection(id)}
+                  onClick={() => {
+                    setWipeProductSelection(id);
+                    setIsWipeModalOpen(false);
+                  }}
                 >
                   <Text variant="bodyMd">{title}</Text>
                   {wipeProductSelection === id && (
