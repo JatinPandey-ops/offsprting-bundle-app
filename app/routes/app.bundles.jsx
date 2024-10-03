@@ -416,10 +416,11 @@ export default function BundlePage() {
                     (product) => product.node.id === id
                   );
                   return (
-                    <BlockStack key={id} inlineAlign="center">
+                    <BlockStack key={id} inlineAlign="center" style={{ marginTop: '20px' }}>
                       <Thumbnail
                         source={product.node.featuredImage?.url || ""}
                         alt={product.node.featuredImage?.altText || product.node.title}
+                        style={{ marginRight: '10px' }}
                       />
                       <Text as="p" variant="bodyMd">
                         {product.node.title}
@@ -435,15 +436,18 @@ export default function BundlePage() {
                   value={maxSelections}
                   onChange={(value) => setMaxSelections(value)}
                   min={1}
+                  style={{ marginTop: '20px' }}
                 />
 
                 <Checkbox
                   label="Allow Single Design Selection?"
                   checked={singleDesignSelection}
                   onChange={(value) => setSingleDesignSelection(value)}
+                  style={{ marginTop: '20px' }}
                 />
 
                 <TextField
+                  style={{ marginTop: '20px' }}
                   type="number"
                   label="Quantity of Wipes"
                   value={wipesQuantity}
@@ -451,15 +455,15 @@ export default function BundlePage() {
                   min={0}
                 />
 
-                <Button variant="primary" onClick={() => setIsPlaceholderModalOpen(true)}>
+                <Button variant="primary" onClick={() => setIsPlaceholderModalOpen(true)} style={{ marginTop: '20px' }}>
                   Select a Placeholder Product
                 </Button>
 
-                <Button variant="primary" onClick={() => setIsWipeModalOpen(true)}>
+                <Button variant="primary" onClick={() => setIsWipeModalOpen(true)} style={{ marginTop: '20px' }}>
                   Select Wipe Product
                 </Button>
 
-                <Button variant="primary" onClick={handleSubmit}>
+                <Button variant="primary" tone="success" onClick={handleSubmit} style={{ marginTop: '20px' }}>
                   Save Bundle
                 </Button>
               </BlockStack>
