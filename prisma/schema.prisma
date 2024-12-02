@@ -83,6 +83,7 @@ model Bundle {
   compareAtPrice        Float?
   maxSelections         Int? // Optional field for max selections
   singleDesignSelection Boolean? // Optional field for single design selection
+  singleSizeSelection   Boolean? // New field for single size/type selection
   wipesQuantity         Int? // Optional field for the quantity of wipes
   wipeProductId         String? // Optional foreign key to the wipe product
   wipeProduct           Product?        @relation(name: "WipeProduct", fields: [wipeProductId], references: [id], onDelete: SetNull) // Relation to the product model

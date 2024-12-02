@@ -11,19 +11,23 @@ import {
   Button,
   Text,
   BlockStack,
-  List,
+  InlineStack,
   Modal,
   Checkbox,
+  Divider,
+  Banner,
+  Box,
 } from "@shopify/polaris";
 import { useState, useCallback, useEffect } from "react";
-import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import { authenticate } from "../shopify.server";
 
 // Loader function to fetch all products and sync with Prisma
 export const loader = async ({ request }) => {
+  console.log(request)
   try {
     const { admin } = await authenticate.admin(request);
+    console.log(admin)
 
     console.log("Fetching all products from Shopify...");
     const graphqlQuery = `query GetAllProducts {
@@ -173,8 +177,6 @@ export const loader = async ({ request }) => {
 };
 
 
-
-
 // Action function to handle form submission and save the bundle
 export const action = async ({ request }) => {
   console.log("Action function started");
@@ -182,10 +184,11 @@ export const action = async ({ request }) => {
   const formData = await request.formData();
   const selectedProductIds = JSON.parse(formData.get("selectedProductIds"));
   const placeholderProductId = formData.get("placeholderProductId").replace("gid://shopify/Product/", "");
-  const maxSelections = parseInt(formData.get("maxSelections"), 10); // Get max selections
-  const singleDesignSelection = formData.get("singleDesignSelection") === "true"; // Get single design selection
-  const wipesQuantity = formData.get("wipesQuantity") ? parseInt(formData.get("wipesQuantity"), 10) : null; // Allow null for wipes quantity
-  let wipeProductId = formData.get("wipeProductId") ? formData.get("wipeProductId").replace("gid://shopify/Product/", "") : null; // Allow null for wipe product ID
+  const maxSelections = parseInt(formData.get("maxSelections"), 10);
+  const singleDesignSelection = formData.get("singleDesignSelection") === "true";
+  const singleSizeSelection = formData.get("singleSizeSelection") === "true"; // Add new field
+  const wipesQuantity = formData.get("wipesQuantity") ? parseInt(formData.get("wipesQuantity"), 10) : null;
+  let wipeProductId = formData.get("wipeProductId") ? formData.get("wipeProductId").replace("gid://shopify/Product/", "") : null;
 
   console.log("Selected Product IDs:", selectedProductIds);
   console.log("Placeholder Product ID:", placeholderProductId);
@@ -225,6 +228,7 @@ export const action = async ({ request }) => {
       price: parseFloat(placeholderProduct.variants[0].price), // Using the first variant's price
       maxSelections, // Save max selections in the bundle
       singleDesignSelection, // Save the single design selection boolean in the bundle
+      singleSizeSelection,
       wipesQuantity, // Save wipes quantity in the bundle
       wipeProductId, // Set wipeProductId, either as the valid ID or null
       bundleProducts: {
@@ -252,11 +256,6 @@ export const action = async ({ request }) => {
 
 
 
-
-
-
-
-
 // Client code: React component
 export default function BundlePage() {
   const actionData = useActionData();
@@ -271,21 +270,21 @@ export default function BundlePage() {
   const [filteredPlaceholderProducts, setFilteredPlaceholderProducts] = useState([]);
   const [maxSelections, setMaxSelections] = useState(5);
   const [singleDesignSelection, setSingleDesignSelection] = useState(false);
+  const [singleSizeSelection, setSingleSizeSelection] = useState(false);
   const [wipesQuantity, setWipesQuantity] = useState(0);
   const [wipeProductSelection, setWipeProductSelection] = useState(null);
   const [filteredWipeProducts, setFilteredWipeProducts] = useState([]);
   
-  const app = useAppBridge(); // Initialize App Bridge for Toast
+  const app = useAppBridge();
   const submit = useSubmit();
-  
+
   // Function to show Toast messages
   const showToast = (message) => {
-    shopify.toast.show(message,  {
+    shopify.toast.show(message, {
       duration: 5000,
     });
   };
 
-  // Reset the form state after successful submission
   const resetFormState = () => {
     setSelectedItems([]);
     setPlaceholderProductSelection(null);
@@ -293,6 +292,7 @@ export default function BundlePage() {
     setWipesQuantity(0);
     setMaxSelections(5);
     setSingleDesignSelection(false);
+    setSingleSizeSelection(false);
   };
 
   const handleSearchChange = useCallback((value) => {
@@ -312,21 +312,25 @@ export default function BundlePage() {
   };
 
   const handleSubmit = useCallback(async () => {
+    if (!placeholderProductSelection) {
+      showToast("Please select a placeholder product");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("selectedProductIds", JSON.stringify(selectedItems));
     formData.append("placeholderProductId", placeholderProductSelection);
-    formData.append("maxSelections", maxSelections); 
-    formData.append("singleDesignSelection", singleDesignSelection); 
-    formData.append("wipesQuantity", wipesQuantity); 
-    formData.append("wipeProductId", wipeProductSelection);
+    formData.append("maxSelections", maxSelections);
+    formData.append("singleDesignSelection", singleDesignSelection);
+    formData.append("singleSizeSelection", singleSizeSelection);
+    formData.append("wipesQuantity", wipesQuantity);
+    formData.append("wipeProductId", wipeProductSelection || "");
 
     console.log("Submitting bundle creation form...");
     submit(formData, { method: "post" });
-  }, [selectedItems, submit, placeholderProductSelection, maxSelections, singleDesignSelection, wipesQuantity, wipeProductSelection]);
+  }, [selectedItems, submit, placeholderProductSelection, maxSelections, singleDesignSelection, singleSizeSelection, wipesQuantity, wipeProductSelection]);
 
-  // Success/Error notification and form reset
   useEffect(() => {
-    // Assuming `fetcher.data` contains success/error info
     if (actionData?.success) {
       showToast("Bundle created successfully!");
       resetFormState();
@@ -353,18 +357,27 @@ export default function BundlePage() {
     }
   }, [isWipeModalOpen, products]);
 
+  // Function to get selected product details
+  const getSelectedProductDetails = (productId) => {
+    return products.find((product) => product.node.id === productId)?.node;
+  };
+
+  const selectedPlaceholderProduct = placeholderProductSelection 
+    ? getSelectedProductDetails(placeholderProductSelection) 
+    : null;
+
+  const selectedWipeProduct = wipeProductSelection 
+    ? getSelectedProductDetails(wipeProductSelection) 
+    : null;
+
   return (
     <Page>
       <Layout>
+        {/* Main Product Selection Section */}
         <Layout.Section>
           <Card>
-            <BlockStack inlineAlign="stretch">
-              <TextField
-                label="Bundle Name"
-                value={userChosenName}
-                autoComplete="off"
-                disabled
-              />
+            <BlockStack gap="4">
+              <Text variant="headingMd" as="h2">Product Selection</Text>
               <TextField
                 label="Search Products"
                 value={searchValue}
@@ -392,13 +405,15 @@ export default function BundlePage() {
                       accessibilityLabel={`View details for ${title}`}
                       persistActions
                     >
-                      <Text variant="bodyMd">{title}</Text>
-                      <Button
-                        variant={selectedItems.includes(id) ? "secondary" : "primary"}
-                        onClick={() => handleSelection(id)}
-                      >
-                        {selectedItems.includes(id) ? "Selected" : "Select"}
-                      </Button>
+                      <BlockStack gap="2">
+                        <Text variant="bodyMd" fontWeight="bold">{title}</Text>
+                        <Button
+                          variant={selectedItems.includes(id) ? "secondary" : "primary"}
+                          onClick={() => handleSelection(id)}
+                        >
+                          {selectedItems.includes(id) ? "Selected" : "Select"}
+                        </Button>
+                      </BlockStack>
                     </ResourceItem>
                   );
                 }}
@@ -407,72 +422,159 @@ export default function BundlePage() {
           </Card>
         </Layout.Section>
 
+        {/* Bundle Configuration Section */}
         {selectedItems.length !== 0 && (
           <Layout.Section variant="oneThird">
-            <Card title="Selected Products">
-              <BlockStack inlineAlign="stretch">
-                {selectedItems.map((id) => {
-                  const product = products.find(
-                    (product) => product.node.id === id
-                  );
-                  return (
-                    <BlockStack key={id} inlineAlign="center" style={{ marginTop: '20px' }}>
-                      <Thumbnail
-                        source={product.node.featuredImage?.url || ""}
-                        alt={product.node.featuredImage?.altText || product.node.title}
-                        style={{ marginRight: '10px' }}
-                      />
-                      <Text as="p" variant="bodyMd">
-                        {product.node.title}
-                      </Text>
-                      <Button variant="plain" onClick={() => handleSelection(id)}>Remove</Button>
-                    </BlockStack>
-                  );
-                })}
+            <BlockStack gap="4">
+              {/* Selected Products Card */}
+              <Card>
+                <BlockStack gap="4">
+                  <Text variant="headingMd" as="h2">Selected Products</Text>
+                  {selectedItems.map((id) => {
+                    const product = getSelectedProductDetails(id);
+                    return (
+                      <InlineStack key={id} align="space-between" blockAlign="center">
+                        <InlineStack gap="4" blockAlign="center">
+                          <Thumbnail
+                            source={product?.featuredImage?.url || ""}
+                            alt={product?.featuredImage?.altText || product?.title}
+                          />
+                          <Text variant="bodyMd">{product?.title}</Text>
+                        </InlineStack>
+                        <Button variant="plain" onClick={() => handleSelection(id)}>
+                          Remove
+                        </Button>
+                      </InlineStack>
+                    );
+                  })}
+                </BlockStack>
+              </Card>
 
-                <TextField
-                  type="number"
-                  label="Max Selections in Bundle"
-                  value={maxSelections}
-                  onChange={(value) => setMaxSelections(value)}
-                  min={1}
-                  style={{ marginTop: '20px' }}
-                />
+              {/* Bundle Settings Card */}
+              <Card>
+                <BlockStack gap="4">
+                  <Text variant="headingMd" as="h2">Bundle Settings</Text>
+                  
+                  <TextField
+                    type="number"
+                    label="Max Selections in Bundle"
+                    value={maxSelections}
+                    onChange={(value) => setMaxSelections(value)}
+                    min={1}
+                  />
 
-                <Checkbox
-                  label="Allow Single Design Selection?"
-                  checked={singleDesignSelection}
-                  onChange={(value) => setSingleDesignSelection(value)}
-                  style={{ marginTop: '20px' }}
-                />
+                  <Checkbox
+                    label="Allow Single Design Selection?"
+                    checked={singleDesignSelection}
+                    onChange={(value) => setSingleDesignSelection(value)}
+                  />
 
-                <TextField
-                  style={{ marginTop: '20px' }}
-                  type="number"
-                  label="Quantity of Wipes"
-                  value={wipesQuantity}
-                  onChange={(value) => setWipesQuantity(value)}
-                  min={0}
-                />
+                  <Checkbox
+                    label="Allow Single Size/Type Selection?"
+                    checked={singleSizeSelection}
+                    onChange={(value) => setSingleSizeSelection(value)}
+                  />
 
-                <Button variant="primary" onClick={() => setIsPlaceholderModalOpen(true)} style={{ marginTop: '20px' }}>
-                  Select a Placeholder Product
-                </Button>
+                  <TextField
+                    type="number"
+                    label="Quantity of Wipes"
+                    value={wipesQuantity}
+                    onChange={(value) => setWipesQuantity(value)}
+                    min={0}
+                  />
+                </BlockStack>
+              </Card>
 
-                <Button variant="primary" onClick={() => setIsWipeModalOpen(true)} style={{ marginTop: '20px' }}>
-                  Select Wipe Product
-                </Button>
+              {/* Placeholder and Wipe Product Selection Card */}
+              <Card>
+                <BlockStack gap="4">
+                  <Text variant="headingMd" as="h2">Required Products</Text>
 
-                <Button variant="primary" tone="success" onClick={handleSubmit} style={{ marginTop: '20px' }}>
-                  Save Bundle
-                </Button>
-              </BlockStack>
-            </Card>
+                  {/* Placeholder Product Section */}
+                  <BlockStack gap="2">
+                    <Text variant="headingSm" as="h3">Placeholder Product</Text>
+                    {selectedPlaceholderProduct ? (
+                      <Banner status="success">
+                        <InlineStack gap="4" blockAlign="center">
+                          <Thumbnail
+                            source={selectedPlaceholderProduct.featuredImage?.url || ""}
+                            alt={selectedPlaceholderProduct.title}
+                          />
+                          <BlockStack gap="1">
+                            <Text variant="bodyMd" fontWeight="bold">
+                              {selectedPlaceholderProduct.title}
+                            </Text>
+                            <Button 
+                              variant="plain" 
+                              onClick={() => setPlaceholderProductSelection(null)}
+                            >
+                              Change
+                            </Button>
+                          </BlockStack>
+                        </InlineStack>
+                      </Banner>
+                    ) : (
+                      <Button 
+                        variant="primary" 
+                        onClick={() => setIsPlaceholderModalOpen(true)}
+                      >
+                        Select Placeholder Product
+                      </Button>
+                    )}
+                  </BlockStack>
+
+                  <Divider />
+
+                  {/* Wipe Product Section */}
+                  <BlockStack gap="2">
+                    <Text variant="headingSm" as="h3">Wipe Product</Text>
+                    {selectedWipeProduct ? (
+                      <Banner status="success">
+                        <InlineStack gap="4" blockAlign="center">
+                          <Thumbnail
+                            source={selectedWipeProduct.featuredImage?.url || ""}
+                            alt={selectedWipeProduct.title}
+                          />
+                          <BlockStack gap="1">
+                            <Text variant="bodyMd" fontWeight="bold">
+                              {selectedWipeProduct.title}
+                            </Text>
+                            <Button 
+                              variant="plain" 
+                              onClick={() => setWipeProductSelection(null)}
+                            >
+                              Change
+                            </Button>
+                          </BlockStack>
+                        </InlineStack>
+                      </Banner>
+                    ) : (
+                      <Button 
+                        variant="primary" 
+                        onClick={() => setIsWipeModalOpen(true)}
+                      >
+                        Select Wipe Product
+                      </Button>
+                    )}
+                  </BlockStack>
+                </BlockStack>
+              </Card>
+
+              {/* Save Button */}
+              <Button 
+                variant="primary" 
+                tone="success" 
+                onClick={handleSubmit}
+                fullWidth
+              >
+                Save Bundle
+              </Button>
+            </BlockStack>
           </Layout.Section>
         )}
       </Layout>
 
-      {/* Modal for Placeholder Product */}
+      {/* Modals */}
       <Modal
         open={isPlaceholderModalOpen}
         onClose={() => setIsPlaceholderModalOpen(false)}
@@ -508,12 +610,14 @@ export default function BundlePage() {
                     setIsPlaceholderModalOpen(false);
                   }}
                 >
-                  <Text variant="bodyMd">{title}</Text>
-                  {placeholderProductSelection === id && (
-                    <Text as="span" variant="bodyMd" color="success">
-                      Selected
-                    </Text>
-                  )}
+                  <InlineStack gap="4" blockAlign="center">
+                    <Text variant="bodyMd">{title}</Text>
+                    {placeholderProductSelection === id && (
+                      <Text variant="bodyMd" tone="success">
+                        Selected
+                      </Text>
+                    )}
+                  </InlineStack>
                 </ResourceItem>
               );
             }}
@@ -521,7 +625,6 @@ export default function BundlePage() {
         </Modal.Section>
       </Modal>
 
-      {/* Modal for Wipe Product */}
       <Modal
         open={isWipeModalOpen}
         onClose={() => setIsWipeModalOpen(false)}
@@ -557,12 +660,14 @@ export default function BundlePage() {
                     setIsWipeModalOpen(false);
                   }}
                 >
-                  <Text variant="bodyMd">{title}</Text>
-                  {wipeProductSelection === id && (
-                    <Text as="span" variant="bodyMd" color="success">
-                      Selected
-                    </Text>
-                  )}
+                  <InlineStack gap="4" blockAlign="center">
+                    <Text variant="bodyMd">{title}</Text>
+                    {wipeProductSelection === id && (
+                      <Text variant="bodyMd" tone="success">
+                        Selected
+                      </Text>
+                    )}
+                  </InlineStack>
                 </ResourceItem>
               );
             }}
@@ -572,4 +677,3 @@ export default function BundlePage() {
     </Page>
   );
 }
-
