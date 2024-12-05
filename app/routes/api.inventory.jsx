@@ -70,36 +70,104 @@ export async function action({ request }) {
         const variantsProperty = lineItems[0].properties?.find(
             prop => prop.name === '_All Selected Variants(ids)'
         );
+        
+        const wipeProperty = lineItems[0].properties?.find(
+            prop => prop.name === 'Wipe Product'
+        );
 
-        if (!variantsProperty) {
-            return json({ message: 'No variants property found' }, { status: 200 });
+        if (!variantsProperty && !wipeProperty) {
+            return json({ message: 'No variants or wipe product found' }, { status: 200 });
         }
 
-        let variants;
-        try {
-            variants = JSON.parse(variantsProperty.value);
-        } catch (error) {
-            console.error("Error parsing variants:", error);
-            processedOrders.delete(orderKey); // Remove from processed set if there's an error
-            return json({ error: 'Error parsing variants' }, { status: 400 });
+        let variants = [];
+        if (variantsProperty) {
+            try {
+                variants = JSON.parse(variantsProperty.value);
+            } catch (error) {
+                console.error("Error parsing variants:", error);
+                processedOrders.delete(orderKey);
+                return json({ error: 'Error parsing variants' }, { status: 400 });
+            }
+        }
+
+        // Add wipe product to variants array if present
+        if (wipeProperty) {
+            try {
+                const wipeProducts = JSON.parse(wipeProperty.value);
+                if (Array.isArray(wipeProducts) && wipeProducts.length > 0) {
+                    // Get first wipe product (assuming there's only one)
+                    const wipeProduct = wipeProducts[0];
+                    // Add it to variants array with the gid format
+                    variants.push({
+                        id: `gid://shopify/Product/${wipeProduct.id}`,
+                        quantity: wipeProduct.quantity
+                    });
+                }
+            } catch (error) {
+                console.error("Error parsing wipe product:", error);
+            }
         }
 
         // Process all variants in parallel to speed up execution
         const results = await Promise.all(
             variants.map(async (variant) => {
                 try {
-                    const result = await adjustInventoryForVariant(
-                        admin,
-                        variant.id,
-                        variant.quantity,
-                        deltaSign,
-                        reason
-                    );
-                    return {
-                        variantId: variant.id,
-                        success: true,
-                        result
-                    };
+                    // Determine if this is a wipe product by checking the gid format
+                    const isWipeProduct = variant.id.includes('Product/');
+                    
+                    if (isWipeProduct) {
+                        // For wipe product, first get its variant
+                        const productQuery = `
+                            query getProductVariant($productId: ID!) {
+                                product(id: $productId) {
+                                    variants(first: 1) {
+                                        edges {
+                                            node {
+                                                id
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        `;
+                        
+                        const response = await admin.graphql(productQuery, {
+                            variables: { productId: variant.id }
+                        });
+                        
+                        const data = await response.json();
+                        const variantId = data.data.product.variants.edges[0].node.id;
+                        
+                        // Extract numeric ID from the variant gid
+                        const numericId = variantId.split('/').pop();
+                        
+                        const result = await adjustInventoryForVariant(
+                            admin,
+                            numericId,
+                            variant.quantity,
+                            deltaSign,
+                            reason
+                        );
+                        return {
+                            variantId: variant.id,
+                            success: true,
+                            result
+                        };
+                    } else {
+                        // For regular variants, process normally
+                        const result = await adjustInventoryForVariant(
+                            admin,
+                            variant.id,
+                            variant.quantity,
+                            deltaSign,
+                            reason
+                        );
+                        return {
+                            variantId: variant.id,
+                            success: true,
+                            result
+                        };
+                    }
                 } catch (error) {
                     console.error(`Error adjusting inventory for variant ${variant.id}:`, error);
                     return {
@@ -114,8 +182,6 @@ export async function action({ request }) {
         // If any adjustments failed, consider removing the order from processed set
         if (results.some(result => !result.success)) {
             console.error(`Some variant adjustments failed for order ${orderId}`);
-            // Depending on your requirements, you might want to:
-            // processedOrders.delete(orderKey);
         }
 
         return json({
