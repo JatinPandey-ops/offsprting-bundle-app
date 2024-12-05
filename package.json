@@ -2,7 +2,7 @@
   "name": "bundle-app",
   "private": true,
   "scripts": {
-    "build": "prisma generate && prisma migrate deploy && remix vite:build",
+    "build": "prisma generate && remix vite:build",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
@@ -16,7 +16,9 @@
     "shopify": "shopify",
     "prisma": "prisma",
     "graphql-codegen": "graphql-codegen",
-    "vite": "vite"
+    "vite": "vite",
+    "do:build": "prisma generate && prisma migrate deploy && remix vite:build",
+    "do:start": "remix-serve ./build/server/index.js"
   },
   "type": "module",
   "engines": {
@@ -69,5 +71,5 @@
   "overrides": {
     "undici": "6.13.0"
   },
-  "author": "pande"
+  "author": "sitejojo"
 }
