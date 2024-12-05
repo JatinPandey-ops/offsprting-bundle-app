@@ -1,33 +1,31 @@
-FROM node:18-alpine
+# Use Node.js 20 as the base image for better compatibility with Shopify packages
+FROM node:20-alpine
 
+# Expose port 3000 for the web server
 EXPOSE 3000
 
+# Set working directory
 WORKDIR /app
 
-# Add this section to handle build-time arguments
+# Add build-time arguments for database configuration
 ARG DATABASE_URL
 ENV DATABASE_URL=$DATABASE_URL
 ENV NODE_ENV=production
 
-# Copy dependency files first for better caching
+# Copy package files first to leverage Docker layer caching
 COPY package.json package-lock.json* ./
 
-# Install production dependencies
+# Install production dependencies only
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Remove CLI packages
-RUN npm remove @shopify/cli
-
-# Copy the rest of the application
+# Copy application files
 COPY . .
-
-# Create a .env file with the database URL
-RUN echo "DATABASE_URL=$DATABASE_URL" > .env
 
 # Generate Prisma client and build the application
 RUN npm run build
 
-# Remove development database file
-RUN rm -f prisma/dev.sqlite
+# Create a .env file with database configuration
+RUN echo "DATABASE_URL=$DATABASE_URL" > .env
 
+# Start the application with migrations and server
 CMD ["npm", "run", "docker-start"]
