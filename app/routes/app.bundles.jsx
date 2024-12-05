@@ -21,6 +21,7 @@ import {
 import { useState, useCallback, useEffect } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 
 // Loader function to fetch all products and sync with Prisma
 export const loader = async ({ request }) => {

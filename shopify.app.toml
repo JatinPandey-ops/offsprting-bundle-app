@@ -3,7 +3,7 @@
 client_id = "331dc9c52f792f831f29df86d0873d41"
 name = "Sitejojo Bundle app"
 handle = "bundle-app-146"
-application_url = "https://transformation-rated-mechanisms-catalogs.trycloudflare.com"
+application_url = "https://dvd-seq-thunder-equations.trycloudflare.com"
 embedded = true
 
 [build]
@@ -17,9 +17,9 @@ scopes = "read_draft_orders,read_inventory,read_locations,read_orders,read_produ
 
 [auth]
 redirect_urls = [
-  "https://transformation-rated-mechanisms-catalogs.trycloudflare.com/auth/callback",
-  "https://transformation-rated-mechanisms-catalogs.trycloudflare.com/auth/shopify/callback",
-  "https://transformation-rated-mechanisms-catalogs.trycloudflare.com/api/auth/callback"
+  "https://dvd-seq-thunder-equations.trycloudflare.com/auth/callback",
+  "https://dvd-seq-thunder-equations.trycloudflare.com/auth/shopify/callback",
+  "https://dvd-seq-thunder-equations.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]
