@@ -72,7 +72,7 @@ export async function action({ request }) {
         );
         
         const wipeProperty = lineItems[0].properties?.find(
-            prop => prop.name === 'Wipe Product'
+            prop => prop.name === '_Wipe Product'
         );
 
         if (!variantsProperty && !wipeProperty) {
