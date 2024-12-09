@@ -56,7 +56,7 @@ export async function action({ request }) {
                 break;
             case 'ORDERS_PAID':
                 deltaSign = -1;
-                reason = 'shrinkage'; // Using valid Shopify reason directly
+                reason = 'movement_created';
                 break;
             default:
                 return json({ message: `Webhook topic ${topic} not handled` }, { status: 200 });
