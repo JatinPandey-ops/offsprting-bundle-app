@@ -392,7 +392,7 @@ export default function BundlesPage() {
                     type="number"
                     value={bundlePrice}
                     onChange={(value) => setBundlePrice(parseFloat(value))}
-                    prefix="$"
+                    prefix="RM"
                     autoComplete="off"
                     error={bundlePrice < 0 ? "Price must be positive" : undefined}
                   />
@@ -403,7 +403,7 @@ export default function BundlesPage() {
                     type="number"
                     value={compareAtPrice}
                     onChange={(value) => setCompareAtPrice(parseFloat(value))}
-                    prefix="$"
+                    prefix="RM"
                     autoComplete="off"
                   />
                 </Grid.Cell>
