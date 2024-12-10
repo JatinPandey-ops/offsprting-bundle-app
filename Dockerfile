@@ -1,6 +1,9 @@
 # Use Node.js 20 as the base image for better compatibility with Shopify packages
 FROM node:20-alpine
 
+# Install OpenSSL dependencies first
+RUN apk add --no-cache openssl openssl1.1-compat
+
 # Expose port 3000 for the web server
 EXPOSE 3000
 
