@@ -231,7 +231,7 @@ export default function BundlesPage() {
   const formatPrice = useCallback((price) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'MYR',
+      currency: 'RM',
     }).format(price || 0);
   }, []);
 
