@@ -2,7 +2,7 @@
 FROM node:20-alpine
 
 # Install OpenSSL dependencies first
-RUN apk add --no-cache openssl openssl1.1-compat
+RUN apk add --no-cache openssl1.1 libssl1.1
 
 # Expose port 3000 for the web server
 EXPOSE 3000
