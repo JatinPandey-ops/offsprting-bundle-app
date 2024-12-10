@@ -1,8 +1,8 @@
-# Use Node.js 20 as the base image for better compatibility with Shopify packages
-FROM node:20-alpine
+# Use Node.js 20 Debian (slim) image instead of Alpine
+FROM node:20-slim
 
-# Install OpenSSL dependencies first
-RUN apk add --no-cache openssl1.1 libssl1.1
+# Install OpenSSL
+RUN apt-get update && apt-get install -y openssl
 
 # Expose port 3000 for the web server
 EXPOSE 3000
