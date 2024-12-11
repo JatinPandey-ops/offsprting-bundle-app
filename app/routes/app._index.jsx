@@ -1,3 +1,5 @@
+// app/routes/bundles.jsx
+
 import {
   Page,
   Card,
@@ -17,7 +19,8 @@ import {
   InlineStack,
   Layout,
   EmptyState,
-  Icon
+  Icon,
+  Spinner,
 } from "@shopify/polaris";
 import { useLoaderData, useFetcher, json } from "@remix-run/react";
 import { useState, useCallback } from "react";
@@ -25,6 +28,7 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { SearchIcon, DeleteIcon } from '@shopify/polaris-icons';
 import prisma from "../db.server";
 
+// Loader function to fetch bundles and products
 export const loader = async () => {
   try {
     const bundles = await prisma.bundle.findMany({
@@ -44,6 +48,12 @@ export const loader = async () => {
             variant: true,
           },
         },
+        wipeProduct: {
+          include: {
+            images: true,
+            variants: true,
+          },
+        },
       },
     });
 
@@ -61,6 +71,7 @@ export const loader = async () => {
   }
 };
 
+// Action function to handle bundle operations
 export const action = async ({ request }) => {
   try {
     const formData = await request.formData();
@@ -82,22 +93,37 @@ export const action = async ({ request }) => {
       const maxSelections = parseInt(formData.get("maxSelections"), 10) || null;
       const singleDesignSelection = formData.get("singleDesignSelection") === "true";
       const updatedProducts = JSON.parse(formData.get("updatedProducts"));
+      const wipeProductId = formData.get("wipeProductId");
+      const wipesQuantity = parseInt(formData.get("wipesQuantity"), 10);
 
+      // Create the update data object
+      const updateData = {
+        userChosenName,
+        price,
+        compareAtPrice,
+        maxSelections,
+        singleDesignSelection,
+        wipesQuantity: wipesQuantity || null,
+        bundleProducts: {
+          deleteMany: {},
+          create: updatedProducts.map((productId) => ({
+            product: { connect: { id: productId } },
+          })),
+        },
+      };
+
+      // Only include wipeProductId if it's not null and not empty
+      if (wipeProductId) {
+        updateData.wipeProductId = wipeProductId;
+      } else {
+        // If no wipe product, explicitly set to null
+        updateData.wipeProductId = null;
+      }
+
+      // Update the bundle
       await prisma.bundle.update({
         where: { id: bundleId },
-        data: {
-          userChosenName,
-          price,
-          compareAtPrice,
-          maxSelections,
-          singleDesignSelection,
-          bundleProducts: {
-            deleteMany: {},
-            create: updatedProducts.map((productId) => ({
-              product: { connect: { id: productId } },
-            })),
-          },
-        },
+        data: updateData,
       });
 
       return json({ success: true });
@@ -110,12 +136,15 @@ export const action = async ({ request }) => {
   }
 };
 
+// Main component
 export default function BundlesPage() {
+  // State management
   const loaderData = useLoaderData();
   const bundles = loaderData?.bundles ?? [];
   const allProducts = loaderData?.allProducts ?? [];
   const fetcher = useFetcher();
 
+  // Bundle editing state
   const [selectedBundle, setSelectedBundle] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [bundleName, setBundleName] = useState("");
@@ -124,25 +153,32 @@ export default function BundlesPage() {
   const [maxSelections, setMaxSelections] = useState(5);
   const [singleDesignSelection, setSingleDesignSelection] = useState(false);
   const [bundleProducts, setBundleProducts] = useState([]);
+
+  // Product search state
   const [searchValue, setSearchValue] = useState("");
   const [filteredProducts, setFilteredProducts] = useState([]);
 
+  // Wipe product state
+  const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
+  const [wipeSearchValue, setWipeSearchValue] = useState("");
+  const [filteredWipeProducts, setFilteredWipeProducts] = useState([]);
+  const [wipesQuantity, setWipesQuantity] = useState(0);
+
+  // Helper functions
   const getMainProductImage = useCallback((product) => {
     return product.images && product.images.length > 0
       ? product.images[0].src
       : "/api/placeholder/80/80";
   }, []);
 
-  const formatVariantTitle = useCallback((variant) => {
-    if (!variant.selectedOptions) return variant.title;
-    try {
-      const options = JSON.parse(variant.selectedOptions);
-      return options.map(opt => `${opt.value}`).join(' / ');
-    } catch {
-      return variant.title;
-    }
+  const formatPrice = useCallback((price) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'MYR',
+    }).format(price || 0);
   }, []);
 
+  // Modal handlers
   const openModal = useCallback((bundle) => {
     setSelectedBundle(bundle);
     setBundleName(bundle.userChosenName);
@@ -151,6 +187,7 @@ export default function BundlesPage() {
     setMaxSelections(bundle.maxSelections || 5);
     setSingleDesignSelection(bundle.singleDesignSelection || false);
     setBundleProducts(bundle.bundleProducts);
+    setWipesQuantity(bundle.wipesQuantity || 0);
     setIsModalOpen(true);
     setSearchValue("");
     setFilteredProducts([]);
@@ -161,51 +198,10 @@ export default function BundlesPage() {
     setSelectedBundle(null);
     setSearchValue("");
     setFilteredProducts([]);
+    setWipesQuantity(0);
   }, []);
 
-  const handleDeleteProduct = useCallback((productId) => {
-    const confirmed = window.confirm("Are you sure you want to remove this product from the bundle?");
-    if (confirmed) {
-      setBundleProducts((prev) =>
-        prev.filter((bundleProduct) => bundleProduct.product.id !== productId)
-      );
-    }
-  }, []);
-
-  const handleDeleteBundle = useCallback((bundleId) => {
-    const confirmed = window.confirm("Are you sure you want to delete this bundle? This action cannot be undone.");
-    if (confirmed) {
-      fetcher.submit({ bundleId }, { method: "delete" });
-    }
-  }, [fetcher]);
-
-  const handleSaveChanges = useCallback(() => {
-    if (!selectedBundle) return;
-    
-    const formData = {
-      bundleId: selectedBundle.id,
-      userChosenName: bundleName,
-      price: bundlePrice,
-      compareAtPrice: compareAtPrice,
-      maxSelections: maxSelections,
-      singleDesignSelection: singleDesignSelection.toString(),
-      updatedProducts: JSON.stringify(bundleProducts.map((bp) => bp.product.id)),
-    };
-
-    fetcher.submit(formData, { method: "post" });
-    closeModal();
-  }, [
-    selectedBundle,
-    bundleName,
-    bundlePrice,
-    compareAtPrice,
-    maxSelections,
-    singleDesignSelection,
-    bundleProducts,
-    fetcher,
-    closeModal,
-  ]);
-
+  // Product handlers
   const handleSearchChange = useCallback((value) => {
     setSearchValue(value);
     if (!value.trim()) {
@@ -228,19 +224,88 @@ export default function BundlesPage() {
     }
   }, [bundleProducts]);
 
-  const formatPrice = useCallback((price) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'MYR',
-    }).format(price || 0);
+  const handleDeleteProduct = useCallback((productId) => {
+    const confirmed = window.confirm("Are you sure you want to remove this product from the bundle?");
+    if (confirmed) {
+      setBundleProducts((prev) =>
+        prev.filter((bundleProduct) => bundleProduct.product.id !== productId)
+      );
+    }
   }, []);
 
+  // Bundle handlers
+  const handleDeleteBundle = useCallback((bundleId) => {
+    const confirmed = window.confirm("Are you sure you want to delete this bundle? This action cannot be undone.");
+    if (confirmed) {
+      fetcher.submit({ bundleId }, { method: "delete" });
+    }
+  }, [fetcher]);
+
+  // Wipe product handlers
+  const handleWipeSearchChange = useCallback((value) => {
+    setWipeSearchValue(value);
+    const filtered = allProducts.filter(product => 
+      product.title.toLowerCase().includes("wipe") &&
+      product.title.toLowerCase().includes(value.toLowerCase())
+    );
+    setFilteredWipeProducts(filtered);
+  }, [allProducts]);
+
+  const handleWipeProductSelect = useCallback((product) => {
+    setSelectedBundle(prev => ({
+      ...prev,
+      wipeProduct: product,
+      wipeProductId: product.id
+    }));
+  }, []);
+
+  const handleRemoveWipeProduct = useCallback(() => {
+    setSelectedBundle(prev => ({
+      ...prev,
+      wipeProduct: null,
+      wipeProductId: null
+    }));
+    setWipesQuantity(0);
+  }, []);
+
+  // Save changes handler
+  const handleSaveChanges = useCallback(() => {
+    if (!selectedBundle) return;
+    
+    const formData = {
+      bundleId: selectedBundle.id,
+      userChosenName: bundleName,
+      price: bundlePrice,
+      compareAtPrice: compareAtPrice,
+      maxSelections: maxSelections,
+      singleDesignSelection: singleDesignSelection.toString(),
+      updatedProducts: JSON.stringify(bundleProducts.map((bp) => bp.product.id)),
+      wipeProductId: selectedBundle.wipeProduct?.id || '',
+      wipesQuantity: wipesQuantity || 0,
+    };
+  
+    fetcher.submit(formData, { method: "post" });
+    closeModal();
+  }, [
+    selectedBundle,
+    bundleName,
+    bundlePrice,
+    compareAtPrice,
+    maxSelections,
+    singleDesignSelection,
+    bundleProducts,
+    wipesQuantity,
+    fetcher,
+    closeModal,
+  ]);
+
+  // Loading state
   if (!loaderData) {
     return (
       <Page>
         <TitleBar title="Bundle Management" />
         <Box display="flex" align="center" justify="center" minHeight="60vh">
-          <div>Loading...</div>
+          <Spinner size="large" />
         </Box>
       </Page>
     );
@@ -263,23 +328,27 @@ export default function BundlesPage() {
     <Page fullWidth>
       <TitleBar title="Bundle Management" />
       
+      {/* Main Layout */}
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
+            {/* Header Banner */}
             <Box paddingBlockEnd="400">
               <Banner title="Bundle Overview" status="info">
                 <p>Manage your product bundles, set prices, and configure product selections.</p>
               </Banner>
             </Box>
 
+            {/* Bundle Grid */}
             {bundles.length === 0 ? (
               renderEmptyState()
             ) : (
               <Grid>
                 {bundles.map((bundle) => (
-                 <Grid.Cell key={bundle.id} columnSpan={{ xs: 12, sm: 12, md: 6, lg: 6, xl: 6 }}>
+                  <Grid.Cell key={bundle.id} columnSpan={{ xs: 12, sm: 12, md: 6, lg: 6, xl: 6 }}>
                     <Card padding="400">
                       <BlockStack gap="400">
+                        {/* Bundle Header */}
                         <InlineStack align="space-between">
                           <Text variant="headingMd" as="h2">
                             {bundle.userChosenName}
@@ -291,6 +360,7 @@ export default function BundlesPage() {
 
                         <Divider />
 
+                        {/* Price Section */}
                         <BlockStack gap="200">
                           <Text as="p" color="subdued">
                             {bundle.bundleProducts?.length || 0} Products
@@ -307,8 +377,10 @@ export default function BundlesPage() {
                           </InlineStack>
                         </BlockStack>
 
+                        {/* Products List */}
                         <Box paddingBlock="400">
                           <BlockStack gap="300">
+                            {/* Regular Products */}
                             {bundle.bundleProducts?.slice(0, 3).map((bp) => (
                               <Box
                                 key={bp.product.id}
@@ -335,14 +407,38 @@ export default function BundlesPage() {
                                 </InlineStack>
                               </Box>
                             ))}
+
+                            {/* More Products Indicator */}
                             {bundle.bundleProducts?.length > 3 && (
                               <Text variant="bodySm" color="subdued" alignment="center">
                                 +{bundle.bundleProducts.length - 3} more products
                               </Text>
                             )}
+
+                            {/* Wipe Product */}
+                            {bundle.wipeProduct && (
+                              <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                                <BlockStack gap="200">
+                                  <InlineStack align="space-between">
+                                    <Text variant="headingSm">Wipe Product</Text>
+                                    <Badge tone="info">Qty: {bundle.wipesQuantity || 0}</Badge>
+                                  </InlineStack>
+                                  <InlineStack gap="300">
+                                    <img
+                                      src={getMainProductImage(bundle.wipeProduct)}
+                                      alt={bundle.wipeProduct.title}
+                                      style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: '4px' }}
+                                    />
+                                    <Text variant="bodyMd">{bundle.wipeProduct.title}</Text>
+                                  </InlineStack>
+                                </BlockStack>
+                              </Box>
+                            )}
                           </BlockStack>
                         </Box>
 
+                        {/* Action Buttons */}
+                        {/* Action Buttons */}
                         <InlineStack gap="300">
                           <Button primary onClick={() => openModal(bundle)}>
                             Edit Bundle
@@ -361,7 +457,7 @@ export default function BundlesPage() {
         </Layout.Section>
       </Layout>
 
-      {/* Modal Content */}
+      {/* Edit Bundle Modal */}
       {selectedBundle && (
         <Modal
           large
@@ -379,11 +475,12 @@ export default function BundlesPage() {
             },
           ]}
         >
+          {/* Basic Bundle Information */}
           <Modal.Section>
             <BlockStack gap="400">
               <Text variant="headingMd" as="h2">
-                            {bundleName}
-                          </Text>
+                {bundleName}
+              </Text>
               
               <Grid>
                 <Grid.Cell columnSpan={{ xs: 4, sm: 4, md: 4 }}>
@@ -430,6 +527,7 @@ export default function BundlesPage() {
             </BlockStack>
           </Modal.Section>
 
+          {/* Current Products Section */}
           <Modal.Section>
             <BlockStack gap="400">
               <Text variant="headingMd" as="h3">Current Products</Text>
@@ -461,7 +559,8 @@ export default function BundlesPage() {
                               {product.title}
                             </Text>
                             <Button
-                              variant="primary" tone="critical" 
+                              variant="primary" 
+                              tone="critical" 
                               onClick={() => handleDeleteProduct(product.id)}
                               icon={DeleteIcon}
                             >
@@ -477,6 +576,103 @@ export default function BundlesPage() {
             </BlockStack>
           </Modal.Section>
 
+          {/* Wipe Product Section */}
+          <Modal.Section>
+            <BlockStack gap="400">
+              <Text variant="headingMd" as="h3">Wipe Product Settings</Text>
+              
+              <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                {selectedBundle.wipeProduct ? (
+                  <BlockStack gap="300">
+                    <InlineStack gap="300" align="space-between" blockAlign="center">
+                      <InlineStack gap="300">
+                        <img
+                          src={getMainProductImage(selectedBundle.wipeProduct)}
+                          alt={selectedBundle.wipeProduct.title}
+                          style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: '4px' }}
+                        />
+                        <BlockStack gap="100">
+                          <Text variant="bodyMd" fontWeight="bold">
+                            {selectedBundle.wipeProduct.title}
+                          </Text>
+                          <Text variant="bodySm" color="subdued">
+                            Selected Wipe Product
+                          </Text>
+                        </BlockStack>
+                      </InlineStack>
+                      <Button 
+                        variant="plain"
+                        tone="critical"
+                        onClick={handleRemoveWipeProduct}
+                      >
+                        Remove
+                      </Button>
+                    </InlineStack>
+                    
+                    <TextField
+                      label="Wipes Quantity"
+                      type="number"
+                      value={wipesQuantity}
+                      onChange={(value) => setWipesQuantity(parseInt(value, 10))}
+                      autoComplete="off"
+                      helpText="Number of wipes to include with this bundle"
+                      min={0}
+                    />
+                  </BlockStack>
+                ) : (
+                  <InlineStack align="center" gap="400">
+                    <Text variant="bodyMd">No wipe product selected</Text>
+                  </InlineStack>
+                )}
+              </Box>
+            </BlockStack>
+          </Modal.Section>
+          <Modal.Section>
+          <BlockStack gap="400">
+            <TextField
+              label="Search Wipe Products"
+              value={wipeSearchValue}
+              onChange={handleWipeSearchChange}
+              autoComplete="off"
+              placeholder="Search for wipe products..."
+              prefix={<Icon source={SearchIcon} />}
+              clearButton
+              onClearButtonClick={() => setWipeSearchValue("")}
+            />
+
+            <Box paddingBlockStart="400">
+              {filteredWipeProducts.length > 0 ? (
+                <ResourceList
+                  resourceName={{ singular: 'product', plural: 'products' }}
+                  items={filteredWipeProducts}
+                  renderItem={(product) => (
+                    <ResourceItem
+                      id={product.id}
+                      onClick={() => handleWipeProductSelect(product)}
+                      media={
+                        <img
+                          src={getMainProductImage(product)}
+                          alt={product.title}
+                          style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: '4px' }}
+                        />
+                      }
+                    >
+                      <Text variant="bodyMd" fontWeight="bold">
+                        {product.title}
+                      </Text>
+                    </ResourceItem>
+                  )}
+                />
+              ) : (
+                <Banner tone="info">
+                  <p>No wipe products found. Try adjusting your search.</p>
+                </Banner>
+              )}
+            </Box>
+          </BlockStack>
+        </Modal.Section>
+
+          {/* Add Products Section */}
           <Modal.Section>
             <BlockStack gap="400">
               <Text variant="headingMd" as="h3">Add Products</Text>
