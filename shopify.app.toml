@@ -3,7 +3,7 @@
 client_id = "331dc9c52f792f831f29df86d0873d41"
 name = "Sitejojo Bundle app"
 handle = "bundle-app-146"
-application_url = "https://ls-background-lb-apply.trycloudflare.com"
+application_url = "https://v-lakes-vegas-searches.trycloudflare.com"
 embedded = true
 
 [build]
@@ -17,9 +17,9 @@ scopes = "read_draft_orders,read_inventory,read_locations,read_orders,read_produ
 
 [auth]
 redirect_urls = [
-  "https://ls-background-lb-apply.trycloudflare.com/auth/callback",
-  "https://ls-background-lb-apply.trycloudflare.com/auth/shopify/callback",
-  "https://ls-background-lb-apply.trycloudflare.com/api/auth/callback"
+  "https://v-lakes-vegas-searches.trycloudflare.com/auth/callback",
+  "https://v-lakes-vegas-searches.trycloudflare.com/auth/shopify/callback",
+  "https://v-lakes-vegas-searches.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]

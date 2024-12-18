@@ -77,6 +77,7 @@ export const action = async ({ request }) => {
     const formData = await request.formData();
     const method = request.method.toLowerCase();
 
+    // Handle bundle deletion
     if (method === "delete") {
       const bundleId = formData.get("bundleId");
       await prisma.bundle.delete({
@@ -85,6 +86,7 @@ export const action = async ({ request }) => {
       return json({ success: true });
     }
 
+    // Handle bundle update
     if (method === "post") {
       const bundleId = formData.get("bundleId");
       const userChosenName = formData.get("userChosenName");
@@ -92,6 +94,7 @@ export const action = async ({ request }) => {
       const compareAtPrice = parseFloat(formData.get("compareAtPrice")) || null;
       const maxSelections = parseInt(formData.get("maxSelections"), 10) || null;
       const singleDesignSelection = formData.get("singleDesignSelection") === "true";
+      const singleSizeSelection = formData.get("singleSizeSelection") === "true";
       const updatedProducts = JSON.parse(formData.get("updatedProducts"));
       const wipeProductId = formData.get("wipeProductId");
       const wipesQuantity = parseInt(formData.get("wipesQuantity"), 10);
@@ -103,36 +106,61 @@ export const action = async ({ request }) => {
         compareAtPrice,
         maxSelections,
         singleDesignSelection,
+        singleSizeSelection,
         wipesQuantity: wipesQuantity || null,
+        wipeProductId: wipeProductId || null,
         bundleProducts: {
           deleteMany: {},
           create: updatedProducts.map((productId) => ({
-            product: { connect: { id: productId } },
-          })),
-        },
+            product: {
+              connect: { id: productId }
+            }
+          }))
+        }
       };
 
-      // Only include wipeProductId if it's not null and not empty
-      if (wipeProductId) {
-        updateData.wipeProductId = wipeProductId;
-      } else {
-        // If no wipe product, explicitly set to null
-        updateData.wipeProductId = null;
-      }
-
       // Update the bundle
-      await prisma.bundle.update({
+      const updatedBundle = await prisma.bundle.update({
         where: { id: bundleId },
         data: updateData,
+        include: {
+          bundleProducts: {
+            include: {
+              product: {
+                include: {
+                  images: true,
+                  variants: true
+                }
+              }
+            }
+          },
+          wipeProduct: {
+            include: {
+              variants: true,
+              images: true
+            }
+          }
+        }
       });
 
-      return json({ success: true });
+      return json({ 
+        success: true, 
+        bundle: updatedBundle 
+      });
     }
 
-    return json({ success: false, error: "Invalid method" });
+    return json({ 
+      success: false, 
+      error: "Invalid method" 
+    });
+
   } catch (error) {
     console.error("Error in action:", error);
-    return json({ success: false, error: error.message });
+    return json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack 
+    });
   }
 };
 
